@@ -47,10 +47,13 @@ def get_stock_ck():
             ck = m.group(1)
 
     return ck, session
-        
+
+def get_date_list(sid):
+    return list(get_finance(sid).keys())
+
 def get_finance(sid):
 
-    today = datetime.datetime.today().date()
+    today = (datetime.datetime.today()-datetime.timedelta(hours=8)).date()
     year, month, day = today.year, today.month, today.day
     today_date = '%d%0.2d%0.2d' % (year, month, day)
     
@@ -65,7 +68,7 @@ def get_finance(sid):
             return _make_attrdict(d)
     
     d = {}
-
+    
     ck, session = get_stock_ck()
     h = {
         'Cookie': 'AspSession='+session.cookies['AspSession']+'; __asc=f192f05015e1a2dd01ff253ba0a; __auc=f192f05015e1a2dd01ff253ba0a; _gat_real=1; _gat_UA-30929682-4=1; _ga=GA1.2.1793962014.1465548991; _gid=GA1.2.2115739754.1503677764; _gat_UA-30929682-1=1',

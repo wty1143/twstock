@@ -44,10 +44,18 @@ class BaseFetcher(object):
 
     def purify(self, original_data):
         pass
+    
+    def date_list(self, sid):
+        pass
 
 class CMomeyFetcher(BaseFetcher):
     def __init__(self):
         pass
+    
+    def get_date_list(self, sid):
+        date_list = twstock.cmoney.get_date_list(sid)
+        return [datetime.datetime.strptime(
+            date, '%Y%m%d') for date in date_list]
 
     def fetch(self, year, month, sid, retry: int=5):
         stock_info = twstock.cmoney.get_finance(sid)
@@ -179,6 +187,9 @@ class Stock(analytics.Analytics):
         self.raw_data = []
         self.data = []
 
+        # all valid date
+        self.date_list = self.fetcher.get_date_list(sid)
+
         # today
         self.today = datetime.datetime.today()
 
@@ -187,7 +198,7 @@ class Stock(analytics.Analytics):
             self.fetch_31()
 
     def _today_filter(self, data):
-        return data.date < self.get_today()
+        return data.date <= self.get_today()
 
     def _month_year_iter(self, start_month, start_year, end_month, end_year):
         ym_start = 12 * start_year + start_month - 1
