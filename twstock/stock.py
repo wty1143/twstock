@@ -29,6 +29,7 @@ TPEX_BASE_URL = 'http://www.tpex.org.tw/'
 DATATUPLE = namedtuple('Data', ['date', 'capacity', 'turnover', 'open',
                                 'high', 'low', 'close', 'change', 'transaction'])
 
+import twstock.cmoney
 
 class BaseFetcher(object):
     def fetch(self, year, month, sid, retry):
@@ -44,6 +45,35 @@ class BaseFetcher(object):
     def purify(self, original_data):
         pass
 
+class CMomeyFetcher(BaseFetcher):
+    def __init__(self):
+        pass
+
+    def fetch(self, year, month, sid, retry: int=5):
+        stock_info = twstock.cmoney.get_finance(sid)
+        month = '%d%02d' % (year, month)
+
+        result = {'data': []}
+
+        for date, data in stock_info.items():
+            if date.startswith(month):
+                result['data'].append(self._make_datatuple(date, data))
+        result['stat'] = 'OK'
+        return result
+        
+    def _make_datatuple(self, date, data):
+        tuple_data = [0] * 9
+        tuple_data[0] = datetime.datetime.strptime(
+            date, '%Y%m%d')
+        tuple_data[1] = data.capacity
+        tuple_data[2] = data.money
+        tuple_data[3] = data.open_price
+        tuple_data[4] = data.high_price
+        tuple_data[5] = data.low_price
+        tuple_data[6] = data.close_price
+        tuple_data[7] = data.diff
+        tuple_data[8] = data.capacity
+        return DATATUPLE(*tuple_data)
 
 class TWSEFetcher(BaseFetcher):
     REPORT_URL = urllib.parse.urljoin(
@@ -144,14 +174,20 @@ class Stock(analytics.Analytics):
 
     def __init__(self, sid: str, initial_fetch: bool=True):
         self.sid = sid
-        self.fetcher = TWSEFetcher(
-        ) if codes[sid].market == '上市' else TPEXFetcher()
+        # self.fetcher = TWSEFetcher() if codes[sid].market == '上市' else TPEXFetcher()
+        self.fetcher = CMomeyFetcher()
         self.raw_data = []
         self.data = []
+
+        # today
+        self.today = datetime.datetime.today()
 
         # Init data
         if initial_fetch:
             self.fetch_31()
+
+    def _today_filter(self, data):
+        return data.date < self.get_today()
 
     def _month_year_iter(self, start_month, start_year, end_month, end_year):
         ym_start = 12 * start_year + start_month - 1
@@ -170,19 +206,25 @@ class Stock(analytics.Analytics):
         """Fetch data from year, month to current year month data"""
         self.raw_data = []
         self.data = []
-        today = datetime.datetime.today()
+        today = self.get_today()
         for year, month in self._month_year_iter(month, year, today.month, today.year):
             self.raw_data.append(self.fetcher.fetch(year, month, self.sid))
-            self.data.extend(self.raw_data[-1]['data'])
+            self.data.extend(filter(self._today_filter, self.raw_data[-1]['data']))
         return self.data
 
     def fetch_31(self):
         """Fetch 31 days data"""
-        today = datetime.datetime.today()
+        today = self.get_today()
         before = today - datetime.timedelta(days=60)
         self.fetch_from(before.year, before.month)
         self.data = self.data[-31:]
         return self.data
+
+    def get_today(self):
+        return self.today
+
+    def set_today(self, today:datetime.datetime):
+        self.today = today
 
     @property
     def date(self):
