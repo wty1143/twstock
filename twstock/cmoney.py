@@ -62,9 +62,10 @@ def get_finance(sid):
     if not os.path.exists('.cache'):
         os.mkdir('.cache')
 
+    # Todo: check last update in one minute
     if os.path.exists(json_file):
         d = json_load(json_file)
-        if list(d.keys())[-1] == today_date:
+        if list(d.keys())[-1] < today_date or datetime.datetime.now().hour >= 14:
             return _make_attrdict(d)
     
     d = {}
@@ -90,17 +91,17 @@ def get_finance(sid):
     for element in res.json()['DataLine']:
         date, open_price, high_price, low_price, close_price, capacity, diff, rate, tmp2, money = element
         date_string = datetime.datetime.fromtimestamp(date/1000.0).strftime('%Y%m%d')
-        if date_string not in d:
-            d[date_string] = {
-                'open_price': open_price,
-                'high_price': high_price,
-                'low_price': low_price,
-                'close_price': close_price,
-                'capacity': capacity,
-                'diff': diff,
-                'rate': rate,
-                'money': money * 1000
-            }
+        #if date_string not in d:
+        d[date_string] = {
+            'open_price': open_price,
+            'high_price': high_price,
+            'low_price': low_price,
+            'close_price': close_price,
+            'capacity': capacity,
+            'diff': diff,
+            'rate': rate,
+            'money': money * 1000
+        }
 
     json_save(json_file, d)
     return _make_attrdict(d)
