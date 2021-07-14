@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
-import requests, os, re, datetime, json
+import requests, os, re, json
 import ujson
+from datetime import datetime, timedelta
 from attrdict import AttrDict
 ###########################################################
 # Private Function
@@ -53,23 +54,33 @@ def get_date_list(sid):
 
 def get_finance(sid):
 
-    today = (datetime.datetime.today()-datetime.timedelta(hours=8)).date()
+    today = (datetime.today()-timedelta(hours=8)).date()
+    now = datetime.now()
     year, month, day = today.year, today.month, today.day
     today_date = '%d%0.2d%0.2d' % (year, month, day)
     
     json_file = os.path.join('.cache', '%s.json' % sid)
+    timestamp_file = os.path.join('.cache', 'timestamp.json')
 
     if not os.path.exists('.cache'):
         os.mkdir('.cache')
 
+    if os.path.exists(timestamp_file):
+        timestamp = json_load(timestamp_file)
+    else:
+        timestamp = {}
+
+    format = "%Y-%m-%d %H:%M:%S"
+    just_update = sid in timestamp and \
+        now < (datetime.strptime(timestamp[sid].time, format) + timedelta(minutes=1))
+
     # Todo: check last update in one minute
     if os.path.exists(json_file):
         d = json_load(json_file)
-        if list(d.keys())[-1] < today_date or datetime.datetime.now().hour >= 14:
+        if list(d.keys())[-1] < today_date or now.hour >= 15 or just_update:
             return _make_attrdict(d)
     
     d = {}
-    
     ck, session = get_stock_ck()
     h = {
         'Cookie': 'AspSession='+session.cookies['AspSession']+'; __asc=f192f05015e1a2dd01ff253ba0a; __auc=f192f05015e1a2dd01ff253ba0a; _gat_real=1; _gat_UA-30929682-4=1; _ga=GA1.2.1793962014.1465548991; _gid=GA1.2.2115739754.1503677764; _gat_UA-30929682-1=1',
@@ -90,7 +101,7 @@ def get_finance(sid):
     
     for element in res.json()['DataLine']:
         date, open_price, high_price, low_price, close_price, capacity, diff, rate, tmp2, money = element
-        date_string = datetime.datetime.fromtimestamp(date/1000.0).strftime('%Y%m%d')
+        date_string = datetime.fromtimestamp(date/1000.0).strftime('%Y%m%d')
         #if date_string not in d:
         d[date_string] = {
             'open_price': open_price,
@@ -103,7 +114,11 @@ def get_finance(sid):
             'money': money * 1000
         }
 
+    # Add timestamp
+    timestamp[sid] = {'time': datetime.now().strftime(format)}
+    json_save(timestamp_file, timestamp)
     json_save(json_file, d)
+
     return _make_attrdict(d)
 
 if __name__ == '__main__':
