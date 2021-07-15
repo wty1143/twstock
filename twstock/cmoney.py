@@ -77,7 +77,8 @@ def get_finance(sid):
     # Todo: check last update in one minute
     if os.path.exists(json_file):
         d = json_load(json_file)
-        if list(d.keys())[-1] < today_date or now.hour >= 15 or just_update:
+        # if list(d.keys())[-1] < today_date or now.hour >= 15 or just_update:
+        if (list(d.keys())[-1] == today_date and now.hour >= 15) or just_update:
             return _make_attrdict(d)
     
     d = {}
